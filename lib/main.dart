@@ -35,6 +35,18 @@ class _WebAppScreenState extends State<WebAppScreen> {
     controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0x00000000))
+      ..setUserAgent('Mozilla/5.0 (Linux; Android 13; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36')
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (String url) {
+            // Chặn hiệu ứng cuộn cao su/loè viền bằng CSS/JS
+            controller.runJavaScript(
+                "document.body.style.overscrollBehavior = 'none';"
+                "document.documentElement.style.overscrollBehavior = 'none';"
+            );
+          },
+        ),
+      )
       ..loadRequest(Uri.parse('https://www.example.com/'));
   }
 
