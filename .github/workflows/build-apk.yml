@@ -6,17 +6,17 @@ on:
       app_name:
         description: 'Tên hiển thị của App (VD: Tên Ứng Dụng)'
         required: false
-        default: 'duyxyz'
+        default: 'example'
       web_url:
         description: 'Địa chỉ Website cần nạp (VD: https://google.com/)'
         required: false
-        default: 'https://duyxyz.github.io/'
+        default: 'https://www.example.com/'
       icon_url:
         description: 'Link tải Logo/Icon (Hỗ trợ jpg, png, webp...)'
         required: false
         default: ''
       package_name:
-        description: 'Tên gói ứng dụng (Package Name, VD: com.congty.app)'
+        description: '(Package Name, VD: com.example.app)'
         required: false
         default: 'com.example.app'
 
