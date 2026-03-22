@@ -1,12 +1,6 @@
-# Web to App Converter (Flutter)
+# Web to App Converter 
 
 This is a simple Flutter application that acts as a web wrapper. It automatically loads a specified website URL using an embedded `InAppWebView`.
-
-## Features
-
-- **Automated Builds**: Use GitHub Actions to easily build and download the APK without setting up a local development environment.
-- **Customizable**: You can customize the App Name, Package Name, Website URL, and App Icon directly from the GitHub Actions workflow UI prior to building.
-- **Optimized Releases**: Generates separate APKs (`arm64-v8a` and `armeabi-v7a`) for optimized installation size.
 
 ## How to Build the App (via GitHub Actions)
 
