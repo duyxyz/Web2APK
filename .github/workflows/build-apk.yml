@@ -76,6 +76,16 @@ jobs:
           # Chạy Expo prebuild để sinh ra mã nguồn thuần tuỳ theo app.json hiện tại
           npx expo prebuild --platform android --clean
 
+      - name: Cache Gradle Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
       - name: Build ứng dụng (Assemble Debug APK)
         run: |
           cd android
