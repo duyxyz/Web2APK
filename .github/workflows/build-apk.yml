@@ -11,6 +11,10 @@ on:
         description: 'Địa chỉ Website cần nạp (VD: https://google.com/)'
         required: false
         default: 'https://duyxyz.github.io/'
+      icon_url:
+        description: 'Link tải Logo/Icon (Hỗ trợ jpg, png, webp...)'
+        required: false
+        default: ''
 
 jobs:
   build:
@@ -20,7 +24,7 @@ jobs:
       - name: Kiểm tra mã nguồn (Checkout)
         uses: actions/checkout@v4
 
-      - name: Thiết lập cấu hình tuỳ chỉnh (App Name & URL)
+      - name: Thiết lập cấu hình tuỳ chỉnh (App Name & URL & Icon)
         if: github.event_name == 'workflow_dispatch'
         run: |
           # Dùng NodeJS để cập nhật tên app trong app.json
@@ -35,9 +39,19 @@ jobs:
           # Dùng sed để thay đổi đường link trong App.js
           URL="${WEB_URL:-https://duyxyz.github.io/}"
           sed -i "s|https://duyxyz.github.io/|$URL|g" App.js
+          
+          # Tải và chuyển đổi Icon sang png nếu có điền link
+          if [ -n "$ICON_URL" ]; then
+            echo "Đang tải Icon từ: $ICON_URL"
+            curl -L -o /tmp/downloaded_icon "$ICON_URL"
+            # Cài đặt ImageMagick để convert (ubuntu-latest đã cài sẵn)
+            convert /tmp/downloaded_icon -resize 1024x1024 ./assets/icon.png
+            convert /tmp/downloaded_icon -resize 1024x1024 ./assets/adaptive-icon.png
+          fi
         env:
           APP_NAME: ${{ github.event.inputs.app_name }}
           WEB_URL: ${{ github.event.inputs.web_url }}
+          ICON_URL: ${{ github.event.inputs.icon_url }}
 
       - name: Thiết lập Node.js 20
         uses: actions/setup-node@v4
