@@ -48,10 +48,16 @@ jobs:
         env:
           PKG_NAME: ${{ github.event.inputs.package_name || 'com.example.app' }}
 
-      - name: Đổi tên hiển thị ứng dụng (App Name)
+      - name: Đổi tên hiển thị ứng dụng (App Name) và Cấp Quyền Web
         run: |
           # Tìm dòng chứa label mặc định đổi thành tên mới
           sed -i "s/android:label=\"app\"/android:label=\"${APP_NAME}\"/g" android/app/src/main/AndroidManifest.xml
+          
+          # Bản Release của Flutter KHÔNG có sẵn mạng, phải thêm quyền INTERNET
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
+          
+          # Hỗ trợ tuỳ chọn link web dạng HTTP không bảo mật
+          sed -i 's/<application/<application android:usesCleartextTraffic="true"/g' android/app/src/main/AndroidManifest.xml
         env:
           APP_NAME: ${{ github.event.inputs.app_name }}
 
