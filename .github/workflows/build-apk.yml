@@ -43,10 +43,9 @@ jobs:
             }
             fs.writeFileSync(file, JSON.stringify(data, null, 2));
           "
-          
           # Dùng sed để thay đổi đường link trong App.js
-          URL="${WEB_URL:-https://duyxyz.github.io/}"
-          sed -i "s|https://duyxyz.github.io/|$URL|g" App.js
+          URL="${WEB_URL:-https://www.example.com/}"
+          sed -i "s|https://www.example.com/|$URL|g" App.js
           
           # Tải và chuyển đổi Icon sang png nếu có điền link
           if [ -n "$ICON_URL" ]; then
