@@ -28,6 +28,4 @@ If you'd like to run or modify the code locally instead:
 3. Run `flutter pub get` in the project root to install dependencies.
 4. Run `flutter run` to launch the application.
 
-## Star History
 
-[![garrytan/gstack - Star History Chart](https://api.star-history.com/image?repos=garrytan/gstack&style=landscape1)](https://star-history.com/garrytan/gstack)
