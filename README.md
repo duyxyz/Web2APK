@@ -30,10 +30,4 @@ If you'd like to run or modify the code locally instead:
 
 ## Star History
 
-<a href="https://www.star-history.com/?repos=duyxyz%2FWeb2APK&type=timeline&logscale=&legend=bottom-right">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=duyxyz/Web2APK&type=timeline&theme=dark&logscale&legend=bottom-right" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=duyxyz/Web2APK&type=timeline&logscale&legend=bottom-right" />
-   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=duyxyz/Web2APK&type=timeline&logscale&legend=bottom-right" />
- </picture>
-</a>
+[![garrytan/gstack - Star History Chart](https://api.star-history.com/image?repos=garrytan/gstack&style=landscape1)](https://star-history.com/garrytan/gstack)
