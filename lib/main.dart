@@ -56,10 +56,7 @@ class _WebAppScreenState extends State<WebAppScreen> {
   InAppWebViewController? webViewController;
   PullToRefreshController? pullToRefreshController;
 
-  double _progress = 0;
   bool _isOffline = false;
-  bool _isLoading = true;
-
   late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
 
   final InAppWebViewSettings settings = InAppWebViewSettings(
@@ -75,6 +72,10 @@ class _WebAppScreenState extends State<WebAppScreen> {
     useHybridComposition: true,
     useShouldOverrideUrlLoading: true,
     useOnDownloadStart: true,
+    javaScriptCanOpenWindowsAutomatically: true,
+    supportZoom: false,
+    builtInZoomControls: false,
+    displayZoomControls: false,
   );
 
   @override
@@ -131,13 +132,10 @@ class _WebAppScreenState extends State<WebAppScreen> {
     final url = request.url.toString();
     final fileName = request.suggestedFilename ?? p.basename(url.split('?').first);
 
-    // Request permissions
     if (Platform.isAndroid) {
       if (await Permission.storage.request().isGranted ||
           await Permission.manageExternalStorage.request().isGranted ||
-          // For Android 13+
           await Permission.photos.request().isGranted) {
-        // Continue
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -180,11 +178,6 @@ class _WebAppScreenState extends State<WebAppScreen> {
       await dio.download(
         url,
         savePath,
-        onReceiveProgress: (received, total) {
-          if (total != -1) {
-            // Optional: update progress UI
-          }
-        },
       );
 
       if (mounted) {
@@ -233,81 +226,44 @@ class _WebAppScreenState extends State<WebAppScreen> {
           child: SafeArea(
             child: Stack(
               children: [
-                Column(
-                  children: [
-                    if (_progress < 1.0 && !_isOffline)
-                      LinearProgressIndicator(
-                        value: _progress,
-                        color: Colors.blue,
-                        backgroundColor: bgColor,
-                        minHeight: 3,
-                      ),
-                    Expanded(
-                      child: InAppWebView(
-                        initialUrlRequest:
-                            URLRequest(url: WebUri('https://www.example.com/')),
-                        initialSettings: settings,
-                        pullToRefreshController: pullToRefreshController,
-                        onWebViewCreated: (controller) {
-                          webViewController = controller;
-                        },
-                        onLoadStart: (controller, url) {
-                          setState(() {
-                            _isLoading = true;
-                            _progress = 0;
-                          });
-                        },
-                        onLoadStop: (controller, url) async {
-                          pullToRefreshController?.endRefreshing();
-                          setState(() {
-                            _isLoading = false;
-                            _progress = 1.0;
-                          });
-                        },
-                        onProgressChanged: (controller, progress) {
-                          if (progress == 100) {
-                            pullToRefreshController?.endRefreshing();
-                          }
-                          setState(() {
-                            _progress = progress / 100;
-                            if (_progress == 1.0) {
-                              _isLoading = false;
-                            }
-                          });
-                        },
-                        onReceivedError: (controller, request, error) {
-                          pullToRefreshController?.endRefreshing();
-                          if (error.type ==
-                                  WebResourceErrorType.NOT_CONNECTED_TO_INTERNET ||
-                              error.type ==
-                                  WebResourceErrorType.HOST_LOOKUP) {
-                            setState(() => _isOffline = true);
-                          }
-                        },
-                        onPermissionRequest: (controller, request) async {
-                          return PermissionResponse(
-                            resources: request.resources,
-                            action: PermissionResponseAction.GRANT,
-                          );
-                        },
-                        onDownloadStartRequest: (controller, request) {
-                          _downloadFile(request);
-                        },
-                      ),
-                    ),
-                  ],
+                InAppWebView(
+                  initialUrlRequest:
+                      URLRequest(url: WebUri('https://www.example.com/')),
+                  initialSettings: settings,
+                  pullToRefreshController: pullToRefreshController,
+                  onWebViewCreated: (controller) {
+                    webViewController = controller;
+                  },
+                  onLoadStop: (controller, url) async {
+                    pullToRefreshController?.endRefreshing();
+                  },
+                  onProgressChanged: (controller, progress) {
+                    if (progress == 100) {
+                      pullToRefreshController?.endRefreshing();
+                    }
+                  },
+                  shouldOverrideUrlLoading: (controller, navigationAction) async {
+                    return NavigationActionPolicy.ALLOW;
+                  },
+                  onReceivedError: (controller, request, error) {
+                    pullToRefreshController?.endRefreshing();
+                    if (error.type ==
+                            WebResourceErrorType.NOT_CONNECTED_TO_INTERNET ||
+                        error.type == WebResourceErrorType.HOST_LOOKUP) {
+                      setState(() => _isOffline = true);
+                    }
+                  },
+                  onPermissionRequest: (controller, request) async {
+                    return PermissionResponse(
+                      resources: request.resources,
+                      action: PermissionResponseAction.GRANT,
+                    );
+                  },
+                  onDownloadStartRequest: (controller, request) {
+                    _downloadFile(request);
+                  },
                 ),
                 if (_isOffline) _buildOfflineScreen(),
-                if (_isLoading && !_isOffline && _progress < 0.1)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 50),
-                      child: LinearProgressIndicator(
-                        borderRadius: BorderRadius.circular(10),
-                        minHeight: 6,
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
