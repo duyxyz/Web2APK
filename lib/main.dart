@@ -1,16 +1,10 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:open_filex/open_filex.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:path/path.dart' as p;
+import 'package:url_launcher/url_launcher.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -132,129 +126,64 @@ class _WebAppScreenState extends State<WebAppScreen> {
     super.dispose();
   }
 
-  Future<void> _downloadFile(DownloadStartRequest request) async {
-    final url = request.url.toString();
-    final fileName = request.suggestedFilename ??
-        (url.startsWith('data:')
-            ? 'downloaded_file'
-            : p.basename(url.split('?').first));
+  bool _isSpecialExternalScheme(Uri uri) {
+    const externalSchemes = {
+      'intent',
+      'market',
+      'mailto',
+      'tel',
+      'sms',
+      'tg',
+      'whatsapp',
+      'zalo',
+      'fb',
+      'facebook',
+      'instagram',
+      'youtube',
+    };
 
-    if (Platform.isAndroid) {
-      if (await Permission.storage.request().isGranted ||
-          await Permission.manageExternalStorage.request().isGranted ||
-          await Permission.photos.request().isGranted) {
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Storage permission denied')),
-          );
-        }
-        return;
-      }
+    return externalSchemes.contains(uri.scheme.toLowerCase());
+  }
+
+  Future<bool> _openExternally(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) {
+      return false;
     }
 
-    try {
-      Directory? downloadsDirectory;
-      if (Platform.isAndroid) {
-        downloadsDirectory = Directory('/storage/emulated/0/Download');
-        if (!await downloadsDirectory.exists()) {
-          downloadsDirectory = await getExternalStorageDirectory();
-        }
-      } else {
-        downloadsDirectory = await getDownloadsDirectory();
-      }
+    return launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
 
-      if (downloadsDirectory == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not find downloads directory')),
-          );
-        }
-        return;
-      }
+  Future<void> _downloadFile(DownloadStartRequest request) async {
+    final url = request.url.toString();
+    final opened = await _openExternally(url);
+    if (!mounted) {
+      return;
+    }
 
-      final savePath = p.join(downloadsDirectory.path, fileName);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          opened
+              ? 'Opened download link in your default browser'
+              : 'Could not open this download link externally',
+        ),
+      ),
+    );
+  }
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Downloading $fileName...')),
-        );
-      }
+  Future<void> _handleExternalNavigation(String url) async {
+    final opened = await _openExternally(url);
+    if (!mounted) {
+      return;
+    }
 
-      if (url.startsWith('data:')) {
-        // Handle Data URL
-        final data = url.split(',').last;
-        final bytes = base64.decode(data);
-        final file = File(savePath);
-        await file.writeAsBytes(bytes);
-      } else if (url.startsWith('blob:')) {
-        // Handle Blob URL via JavaScript
-        final jsCode = """
-          (async function() {
-            try {
-              const response = await fetch('$url');
-              const blob = await response.blob();
-              return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-              });
-            } catch (e) {
-              return null;
-            }
-          })();
-        """;
-        final base64String = await webViewController?.evaluateJavascript(source: jsCode);
-        if (base64String != null && base64String is String && base64String.contains(',')) {
-          final data = base64String.split(',').last;
-          final bytes = base64.decode(data);
-          final file = File(savePath);
-          await file.writeAsBytes(bytes);
-        } else {
-          throw Exception("Could not fetch blob data");
-        }
-      } else {
-        // Handle standard URL
-        String? cookies;
-        if (!kIsWeb) {
-          final cookieManager = CookieManager.instance();
-          final list = await cookieManager.getCookies(url: WebUri(url));
-          cookies = list.map((e) => '${e.name}=${e.value}').join('; ');
-        }
-
-        final dio = Dio();
-        await dio.download(
-          url,
-          savePath,
-          options: Options(
-            headers: {
-              if (cookies != null && cookies.isNotEmpty) 'Cookie': cookies,
-              'User-Agent': settings.userAgent,
-            },
-          ),
-        );
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Download completed: $fileName'),
-            action: SnackBarAction(
-              label: 'Open',
-              onPressed: () {
-                OpenFilex.open(savePath);
-              },
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Download failed: $e')),
-        );
-      }
+    if (!opened) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not open this link with an external app'),
+        ),
+      );
     }
   }
 
@@ -299,6 +228,12 @@ class _WebAppScreenState extends State<WebAppScreen> {
                     }
                   },
                   shouldOverrideUrlLoading: (controller, navigationAction) async {
+                    final url = navigationAction.request.url?.toString();
+                    final uri = url == null ? null : Uri.tryParse(url);
+                    if (uri != null && _isSpecialExternalScheme(uri)) {
+                      await _handleExternalNavigation(url);
+                      return NavigationActionPolicy.CANCEL;
+                    }
                     return NavigationActionPolicy.ALLOW;
                   },
                   onReceivedError: (controller, request, error) {
