@@ -231,7 +231,7 @@ class _WebAppScreenState extends State<WebAppScreen> {
                     final url = navigationAction.request.url?.toString();
                     final uri = url == null ? null : Uri.tryParse(url);
                     if (uri != null && _isSpecialExternalScheme(uri)) {
-                      await _handleExternalNavigation(url);
+                      await _handleExternalNavigation(url!);
                       return NavigationActionPolicy.CANCEL;
                     }
                     return NavigationActionPolicy.ALLOW;
