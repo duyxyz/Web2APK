@@ -4,27 +4,27 @@ on:
   workflow_dispatch:
     inputs:
       app_name:
-        description: 'App display name (e.g., App Name)'
+        description: 'App display name'
         required: false
         default: 'example'
       package_name:
-        description: 'Package Name (e.g., com.example.app)'
+        description: 'Package Name'
         required: false
         default: 'com.example.app'
       web_url:
-        description: 'Website URL to load (e.g., https://google.com/)'
+        description: 'Website URL'
         required: false
         default: 'https://www.example.com/'
       icon_url:
-        description: 'Logo/Icon download link (Supports jpg, png, webp...)'
+        description: 'App Icon download link'
         required: false
         default: ''
       splash_url:
-        description: 'Splash Screen Logo download link'
+        description: 'Splash Logo download link'
         required: false
         default: ''
       splash_color:
-        description: 'Splash Background HEX Color (Default: #ffffff)'
+        description: 'Splash HEX Color'
         required: false
         default: '#ffffff'
 
@@ -48,7 +48,7 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Initialize Android platform for Flutter
+      - name: Initialize Android platform
         run: |
           rm -rf android
           flutter create . --platforms android --org "${PKG_NAME}" --project-name app
@@ -57,14 +57,9 @@ jobs:
 
       - name: Change App Name and Grant Permissions
         run: |
-          # Set App Label
           sed -i "s/android:label=\"app\"/android:label=\"${APP_NAME}\"/g" android/app/src/main/AndroidManifest.xml
-          
-          # Add permissions
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i \    <uses-permission android:name="android.permission.VIBRATE" />' android/app/src/main/AndroidManifest.xml
-          
-          # Allow HTTP traffic
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/g' android/app/src/main/AndroidManifest.xml
         env:
           APP_NAME: ${{ github.event.inputs.app_name }}
@@ -76,53 +71,46 @@ jobs:
         env:
           WEB_URL: ${{ github.event.inputs.web_url }}
 
-      - name: Install dependencies (Pub get)
+      - name: Install dependencies
         run: flutter pub get
 
-      - name: Download and generate App Icon automatically
+      - name: Download and generate App Icon
         run: |
           if [ -n "$ICON_URL" ]; then
             mkdir -p assets
             curl -fL --retry 3 --connect-timeout 20 -o assets/icon-source "$ICON_URL"
             sudo apt-get update && sudo apt-get install -y imagemagick
-            convert assets/icon-source -auto-orient -background none -gravity center -resize 1024x1024 -extent 1024x1024 PNG32:assets/icon.png
+            convert assets/icon-source -resize 1024x1024 assets/icon.png
             
-            cat <<EOF > flutter_launcher_icons.yaml
-            flutter_launcher_icons:
-              android: true
-              ios: false
-              image_path: "assets/icon.png"
-            EOF
+            echo "flutter_launcher_icons:" > flutter_launcher_icons.yaml
+            echo "  android: true" >> flutter_launcher_icons.yaml
+            echo "  ios: false" >> flutter_launcher_icons.yaml
+            echo "  image_path: \"assets/icon.png\"" >> flutter_launcher_icons.yaml
             
             dart run flutter_launcher_icons -f flutter_launcher_icons.yaml
           fi
         env:
           ICON_URL: ${{ github.event.inputs.icon_url }}
 
-      - name: Download and generate Splash Screen automatically
+      - name: Download and generate Splash Screen
         run: |
           mkdir -p assets
           COLOR="${SPLASH_COLOR:-#ffffff}"
           
-          # Create base config using heredoc to ensure correct YAML formatting
-          cat <<EOF > flutter_native_splash.yaml
-          flutter_native_splash:
-            color: "$COLOR"
-            color_dark: "$COLOR"
-            android: true
-            android_12:
-              color: "$COLOR"
-              color_dark: "$COLOR"
-          EOF
+          echo "flutter_native_splash:" > flutter_native_splash.yaml
+          echo "  color: \"$COLOR\"" >> flutter_native_splash.yaml
+          echo "  color_dark: \"$COLOR\"" >> flutter_native_splash.yaml
+          echo "  android: true" >> flutter_native_splash.yaml
+          echo "  android_12:" >> flutter_native_splash.yaml
+          echo "    color: \"$COLOR\"" >> flutter_native_splash.yaml
+          echo "    color_dark: \"$COLOR\"" >> flutter_native_splash.yaml
           
           if [ -n "$SPLASH_URL" ]; then
             curl -fL --retry 3 --connect-timeout 20 -o assets/splash-source "$SPLASH_URL"
             if ! command -v convert &> /dev/null; then
               sudo apt-get update && sudo apt-get install -y imagemagick
             fi
-            convert assets/splash-source -auto-orient -background none -gravity center -resize 1024x1024 -extent 1024x1024 PNG32:assets/icon_splash.png
-            
-            # Append image paths with correct indentation
+            convert assets/splash-source -resize 1024x1024 assets/icon_splash.png
             sed -i '/flutter_native_splash:/a \  image: "assets/icon_splash.png"' flutter_native_splash.yaml
             sed -i '/android_12:/a \    image: "assets/icon_splash.png"' flutter_native_splash.yaml
           fi
@@ -133,8 +121,7 @@ jobs:
           SPLASH_COLOR: ${{ github.event.inputs.splash_color }}
 
       - name: Build application (Assemble APK Split)
-        run: |
-          flutter build apk --split-per-abi --release
+        run: flutter build apk --split-per-abi --release
 
       - name: Upload arm64-v8a file to Artifacts
         uses: actions/upload-artifact@v4
