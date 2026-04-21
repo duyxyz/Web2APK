@@ -19,6 +19,14 @@ on:
         description: 'Logo/Icon download link (Supports jpg, png, webp...)'
         required: false
         default: ''
+      splash_url:
+        description: 'Splash Screen Logo download link'
+        required: false
+        default: ''
+      splash_color:
+        description: 'Splash Background HEX Color (Default: #ffffff)'
+        required: false
+        default: '#ffffff'
 
 jobs:
   build:
@@ -48,13 +56,16 @@ jobs:
         env:
           PKG_NAME: ${{ github.event.inputs.package_name || 'com.example.app' }}
 
-      - name: Change App Name and Grant Web Permissions
+      - name: Change App Name and Grant Permissions
         run: |
           # Find the default label line and replace it with the new name
           sed -i "s/android:label=\"app\"/android:label=\"${APP_NAME}\"/g" android/app/src/main/AndroidManifest.xml
           
           # Flutter Release builds don't have internet by default, need to add INTERNET permission
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
+          
+          # Native vibrate for webviews
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.VIBRATE" />' android/app/src/main/AndroidManifest.xml
           
           # Support optional insecure HTTP links
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/g' android/app/src/main/AndroidManifest.xml
@@ -65,7 +76,7 @@ jobs:
         run: |
           # Replace URL in Flutter source code
           URL="${WEB_URL:-https://www.example.com/}"
-          sed -i "s|https://www.example.com/|$URL|g" lib/main.dart
+          sed -i "s|https://www.example.com/|$URL|g" lib/screens/web_app_screen.dart
         env:
           WEB_URL: ${{ github.event.inputs.web_url }}
 
@@ -111,6 +122,41 @@ jobs:
         env:
           ICON_URL: ${{ github.event.inputs.icon_url }}
 
+      - name: Download and generate Splash Screen automatically
+        run: |
+          mkdir -p assets
+          
+          # Base configuration
+          echo "flutter_native_splash:" > flutter_native_splash.yaml
+          echo "  color: \"$SPLASH_COLOR\"" >> flutter_native_splash.yaml
+          echo "  color_dark: \"$SPLASH_COLOR\"" >> flutter_native_splash.yaml
+          echo "  android: true" >> flutter_native_splash.yaml
+          echo "  android_12:" >> flutter_native_splash.yaml
+          echo "    color: \"$SPLASH_COLOR\"" >> flutter_native_splash.yaml
+          echo "    color_dark: \"$SPLASH_COLOR\"" >> flutter_native_splash.yaml
+          
+          if [ -n "$SPLASH_URL" ]; then
+            echo "Processing Splash download from: $SPLASH_URL"
+            curl -fL --retry 3 --connect-timeout 20 -o assets/splash-source "$SPLASH_URL"
+            
+            # Ensure imagemagick is available (installed in previous step if ICON_URL was set, otherwise we might need to install it)
+            if ! command -v convert &> /dev/null; then
+              sudo apt-get update && sudo apt-get install -y imagemagick
+            fi
+            
+            # Convert to PNG
+            convert assets/splash-source -auto-orient -background none -gravity center -resize 1024x1024 -extent 1024x1024 PNG32:assets/icon_splash.png
+            
+            echo "  image: \"assets/icon_splash.png\"" >> flutter_native_splash.yaml
+            echo "    image: \"assets/icon_splash.png\"" >> flutter_native_splash.yaml
+          fi
+          
+          # Run Flutter splash generation tool
+          dart run flutter_native_splash:create --path flutter_native_splash.yaml
+        env:
+          SPLASH_URL: ${{ github.event.inputs.splash_url }}
+          SPLASH_COLOR: ${{ github.event.inputs.splash_color }}
+
       - name: Build application (Assemble APK Split)
         run: |
           # Run command to output 2 separate APK files (arm64-v8a and armeabi-v7a)
@@ -127,4 +173,3 @@ jobs:
         with:
           name: ${{ github.event.inputs.app_name || 'app' }}-armeabi-v7a-release-apk
           path: build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
-
